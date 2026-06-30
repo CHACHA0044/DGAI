@@ -1,0 +1,322 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Runtime queries: Connection Pooler (Transaction Mode, port 6543)
+  url       = env("DATABASE_URL")
+  // Migrations only: Direct Connection (port 5432)
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum TaskStatus {
+  DRAFT
+  ANALYZING
+  ACTIVE
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  ABANDONED
+}
+
+enum GoalType {
+  SHORT_TERM
+  LONG_TERM
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum CalendarEventType {
+  TASK_BLOCK
+  HABIT_BLOCK
+  MEETING
+  FREE_TIME
+  BUFFER
+  BREAK
+}
+
+enum InsightType {
+  PRODUCTIVITY_PATTERN
+  WEEKLY_SUMMARY
+  MONTHLY_SUMMARY
+  FOCUS_SCORE
+  DELAY_ANALYSIS
+  COACHING_TIP
+}
+
+enum AppTheme {
+  DARK
+  LIGHT
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────────────────────
+// Task Model
+// ─────────────────────────────────────────────────────────────
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  deadline    DateTime?
+  estimatedHours Float?
+  tags        String[]
+  status      TaskStatus @default(DRAFT)
+
+  // ── AI-generated fields ────────────────────────────────────
+  aiPriority          Int?             // 1–10
+  riskLevel           RiskLevel?
+  difficulty          DifficultyLevel?
+  estimatedCompletion String?          // Human-readable, e.g. "3 hours"
+  executionPlan       String?          // Step-by-step strategy
+  productivityAdvice  String?
+  nextImmediateStep   String?
+  potentialBlockers   Json?            // String[]
+  dependencies        Json?            // String[]
+  subtasks            Json?            // Subtask[]
+  analysisMetadata    Json?            // Reserved for future AI metadata
+
+  // ── Phase 2 dynamic prioritization fields ─────────────────
+  priorityScore       Int?             // Dynamic priority score (1-100)
+  priorityLabel       String?          // Dynamic label: Critical, High, Medium, Low
+  priorityReason      String?          // Justification reason
+  confidence          Float?           // Confidence score (0-1)
+  lastPrioritizedAt   DateTime?        // Last prioritized timestamp
+
+  // ── Phase 3 Companion Enhancements ────────────────────────
+  riskScore           Int?             // 0-100 risk score
+  completionProb      Float?           // Completion probability (0-1)
+  missProbability     Float?           // Miss probability (0-1)
+  timeDeficit         Float?           // Time deficit in hours
+  recoveryPlan        Json?            // Action recovery suggestions
+  lastRiskAnalysisAt  DateTime?        // Risk analysis timestamp
+
+  // ── Analysis tracking ─────────────────────────────────────
+  isAnalyzed    Boolean   @default(false)
+  analyzedAt    DateTime?
+  analysisError String?
+
+  // ── Timestamps ────────────────────────────────────────────
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tasks")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Daily Plan Model
+// ─────────────────────────────────────────────────────────────
+
+model DailyPlan {
+  id                      String   @id @default(cuid())
+  date                    String   @unique // format: YYYY-MM-DD
+  schedule                Json     // Today's schedule time blocks
+  suggestedOrder          Json     // string[] of task IDs in recommended order
+  recommendedBreaks       Json     // string[] of recommended breaks
+  expectedFinishTime      String   // expected end of workday
+  tasksToPostpone         Json     // string[] of task IDs/titles to postpone
+  mostImportantTask       String   // taskId or title of the MIT
+  recommendedFocusSession String   // description of focus blocks
+  quickWins               Json     // string[] of task IDs/titles
+  highEffortWork          Json     // string[] of task IDs/titles
+  deepWorkBlocks          Json     // string[] of work blocks
+  isFallback              Boolean  @default(false) // Offline Mode indicator
+  isStale                 Boolean  @default(false) // cache staleness status
+  generatedAt             DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("daily_plans")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Extension points for future modules (Phase 2+)
+// Uncomment and run `prisma migrate dev` when adding a module.
+// ─────────────────────────────────────────────────────────────
+
+// model User {
+//   id        String   @id @default(cuid())
+//   email     String   @unique
+//   name      String?
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   tasks     Task[]
+//   @@map("users")
+// }
+
+// model CalendarEvent {
+//   id        String   @id @default(cuid())
+//   taskId    String
+//   task      Task     @relation(fields: [taskId], references: [id])
+//   startAt   DateTime
+//   endAt     DateTime
+//   source    String
+//   externalId String?
+//   createdAt DateTime @default(now())
+//   @@map("calendar_events")
+// }
+
+// model Habit {
+//   id          String   @id @default(cuid())
+//   name        String
+//   frequency   String
+//   streakCount Int      @default(0)
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   @@map("habits")
+// }
+
+model Notification {
+  id          String   @id @default(cuid())
+  taskId      String?
+  type        String
+  message     String
+  read        Boolean  @default(false)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  @@map("notifications")
+}
+
+model PlannerMetric {
+  id          String   @id @default(cuid())
+  metric      String   // GEMINI_CALL, OFFLINE_FALLBACK, EMERGENCY_TRIGGER
+  status      String   // SUCCESS, FAILURE
+  details     String?  // error details or triggers
+  createdAt   DateTime @default(now())
+  @@map("planner_metrics")
+}
+
+// model ChatHistory {
+//   id        String   @id @default(cuid())
+//   role      String   // "user" | "assistant"
+//   content   String
+//   metadata  Json?
+//   createdAt DateTime @default(now())
+//   @@map("chat_history")
+// }
+
+// model AIMemory {
+//   id        String   @id @default(cuid())
+//   key       String   @unique
+//   value     Json
+//   expiresAt DateTime?
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   @@map("ai_memory")
+// }
+
+// ─────────────────────────────────────────────────────────────
+// Phase 4: Goals & Habits & Calendar & Insights & Settings
+// ─────────────────────────────────────────────────────────────
+
+model Goal {
+  id             String     @id @default(cuid())
+  title          String
+  description    String?
+  type           GoalType   @default(SHORT_TERM)
+  status         GoalStatus @default(ACTIVE)
+  progress       Int        @default(0)   // 0-100 percent
+  targetDate     DateTime?
+  linkedTaskIds  Json       @default("[]") // string[]
+  aiEstimation   String?    // AI completion estimation text
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([status])
+  @@map("goals")
+}
+
+model Habit {
+  id                String         @id @default(cuid())
+  name              String
+  description       String?
+  frequency         HabitFrequency @default(DAILY)
+  streakCount       Int            @default(0)
+  completedToday    Boolean        @default(false)
+  lastCompletedAt   DateTime?
+  completionHistory Json           @default("[]") // { date: string; completed: boolean }[]
+  aiSuggestion      String?        // AI-generated tip for this habit
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([frequency])
+  @@map("habits")
+}
+
+model CalendarEvent {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  startAt     DateTime
+  endAt       DateTime
+  taskId      String?           // Optional link to a Task
+  habitId     String?           // Optional link to a Habit
+  type        CalendarEventType @default(TASK_BLOCK)
+  source      String            @default("INTERNAL") // INTERNAL | GOOGLE | OUTLOOK
+  isBlocked   Boolean           @default(false)
+  color       String?           // Optional display color hex
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([startAt, endAt])
+  @@map("calendar_events")
+}
+
+model UserInsight {
+  id          String      @id @default(cuid())
+  type        InsightType
+  title       String
+  content     String      // Human-readable insight text
+  data        Json        @default("{}") // Structured metrics
+  period      String?     // e.g. "2024-W26" or "2024-06"
+  generatedAt DateTime    @default(now())
+
+  @@index([type, generatedAt])
+  @@map("user_insights")
+}
+
+model UserSettings {
+  id                       String   @id @default("default")
+  workStartHour            Int      @default(9)   // 9 AM
+  workEndHour              Int      @default(18)  // 6 PM
+  breakDurationMinutes     Int      @default(15)
+  focusIntervalMinutes     Int      @default(50)  // Pomodoro default
+  emergencyThresholdHours  Float    @default(2.0) // Hours until deadline to trigger emergency
+  notificationsEnabled     Boolean  @default(true)
+  theme                    AppTheme @default(DARK)
+  updatedAt                DateTime @updatedAt
+
+  @@map("user_settings")
+}
