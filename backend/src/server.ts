@@ -9,12 +9,12 @@ async function bootstrap() {
 
     const app = createApp();
 
-    const server = app.listen(env.PORT, () => {
+    const server = app.listen(env.PORT, '0.0.0.0', () => {
       console.log('\n🛡️  Deadline Guardian AI — Backend');
-      console.log(`🚀  Server running at http://localhost:${env.PORT}`);
+      console.log(`🚀  Server running at http://0.0.0.0:${env.PORT}`);
       console.log(`🌍  Environment: ${env.NODE_ENV}`);
       console.log(`🤖  AI model: ${env.GEMINI_MODEL}`);
-      console.log(`📊  Health: http://localhost:${env.PORT}/health\n`);
+      console.log(`📊  Health: http://0.0.0.0:${env.PORT}/health\n`);
     });
 
     // ── Graceful shutdown ─────────────────────────────────────
